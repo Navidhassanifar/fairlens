@@ -1,10 +1,9 @@
-
 import { GoogleGenAI, Type } from '@google/genai';
 import { PriceData, CompetitorPrice, TrendData } from '../types';
 
 // WARNING: It is not recommended to hardcode your API key.
-// Please replace "YOUR_API_KEY_HERE" with your actual Gemini API key.
-const ai = new GoogleGenAI({ apiKey: AIzaSyAWu9uOSYuvFeiLwLhePCz3ZXSCVC1W3jg as string });
+// The provided API key has been added below.
+const ai = new GoogleGenAI({ apiKey: "AIzaSyAWu9uOSYuvFeiLwLhePCz3ZXSCVC1W3jg" as string });
 
 export const generateBuyerInsight = async (priceHistory: PriceData[]): Promise<string> => {
   try {
