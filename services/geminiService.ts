@@ -1,13 +1,13 @@
+
 import { GoogleGenAI, Type } from '@google/genai';
 import { PriceData, CompetitorPrice, TrendData } from '../types';
 
-// WARNING: It is not recommended to hardcode your API key.
-// The provided API key has been added below.
-const ai = new GoogleGenAI({ apiKey: "AIzaSyAWu9uOSYuvFeiLwLhePCz3ZXSCVC1W3jg" as string });
+// API key is now expected to be in environment variables for security
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
-export const generateBuyerInsight = async (priceHistory: PriceData[]): Promise<string> => {
+export const generateBuyerInsight = async (priceHistory: PriceData[], productName: string): Promise<string> => {
   try {
-    const prompt = `Analyze this price history for a 'Samsung Galaxy A55'. The data is for the last 90 days. Provide a short, smart insight for a potential buyer in a single sentence, highlighting if it's a good deal. Example: "This product’s price dropped 12% over the past month. You’re getting a great deal today." The data is: ${JSON.stringify(priceHistory.slice(-30))}`;
+    const prompt = `Analyze this price history for a '${productName}'. The data is for the last 90 days. Provide a short, smart insight for a potential buyer in a single sentence, highlighting if it's a good deal. Example: "This product’s price dropped 12% over the past month. You’re getting a great deal today." The data is: ${JSON.stringify(priceHistory.slice(-30))}`;
     
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -24,10 +24,11 @@ export const generateBuyerInsight = async (priceHistory: PriceData[]): Promise<s
 export const generateSellerPricingSuggestion = async (
   sellerPrice: number,
   competitorPrices: CompetitorPrice[],
-  searchTrend: TrendData[]
+  searchTrend: TrendData[],
+  productName: string,
 ): Promise<string> => {
   try {
-    const prompt = `You are an e-commerce pricing expert for the Iranian market. A seller's current price for a 'Samsung Galaxy A55' is ${sellerPrice} Toman. Competitor prices are ${JSON.stringify(competitorPrices)}. Recent search trends are ${JSON.stringify(searchTrend.slice(-7))}. Provide a concise, actionable pricing recommendation in a single sentence. Example: "Based on current demand and competitor analysis, we recommend lowering your price by 3.8% to potentially increase conversion rate by up to 9%."`;
+    const prompt = `You are an e-commerce pricing expert for the Iranian market. A seller's current price for a '${productName}' is ${sellerPrice} Toman. Competitor prices are ${JSON.stringify(competitorPrices)}. Recent search trends are ${JSON.stringify(searchTrend.slice(-7))}. Provide a concise, actionable pricing recommendation in a single sentence. Example: "Based on current demand and competitor analysis, we recommend lowering your price by 3.8% to potentially increase conversion rate by up to 9%."`;
     
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -41,9 +42,9 @@ export const generateSellerPricingSuggestion = async (
 };
 
 
-export const generateSellerInsightFeed = async (): Promise<string[]> => {
+export const generateSellerInsightFeed = async (productName: string): Promise<string[]> => {
     try {
-        const prompt = "Generate exactly 3 short, distinct, actionable insights for an e-commerce seller of a 'Samsung Galaxy A55' in the Iranian market. Examples: 'Your product was the most clicked in its category yesterday.', 'Competitor TechnoLife raised their price by 4% today.', 'Search interest for this product is up 15% this week.'";
+        const prompt = `Generate exactly 3 short, distinct, actionable insights for an e-commerce seller of a '${productName}' in the Iranian market. Examples: 'Your product was the most clicked in its category yesterday.', 'Competitor TechnoLife raised their price by 4% today.', 'Search interest for this product is up 15% this week.'`;
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -59,7 +60,8 @@ export const generateSellerInsightFeed = async (): Promise<string[]> => {
                                 type: Type.STRING
                             }
                         }
-                    }
+                    },
+                    required: ["insights"]
                 },
             },
         });

@@ -1,43 +1,12 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, Funnel, FunnelChart, LabelList, Line, LineChart, Tooltip, XAxis, YAxis, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
-import { CompetitorPrice, FunnelData, TrendData } from '../types';
+import { Product } from '../types';
 import { generateSellerPricingSuggestion, generateSellerInsightFeed } from '../services/geminiService';
+import { generateCompetitorPrices, generateFunnelData, generateSearchTrend } from '../data/products';
 import { ViewsIcon, ClicksIcon, ConversionIcon, RevenueIcon, TrendingUpIcon, BulbIcon } from './Icons';
 
-// Mock Data Generation
-const sellerPrice = 20350000;
-const competitorPricesData: CompetitorPrice[] = [
-    { store: "You (Digikala)", price: sellerPrice, sellerPrice: sellerPrice },
-    { store: "TechnoLife", price: 20990000, sellerPrice: sellerPrice },
-    { store: "Basalam", price: 21200000, sellerPrice: sellerPrice },
-    { store: "Other Sellers", price: 20650000, sellerPrice: sellerPrice },
-];
 
-const funnelData: FunnelData[] = [
-  { value: 15670, name: 'Impressions', fill: '#ef4444' },
-  { value: 1250, name: 'Clicks', fill: '#f87171' },
-  { value: 450, name: 'Cart Adds', fill: '#fb923c' },
-  { value: 180, name: 'Purchases', fill: '#facc15' },
-];
-
-const generateSearchTrend = (): TrendData[] => {
-    const data: TrendData[] = [];
-    let searches = 800;
-    const today = new Date();
-    for (let i = 29; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(today.getDate() - i);
-        searches += Math.random() * 200 - 100;
-        searches = Math.max(500, searches);
-        data.push({
-            day: date.toLocaleDateString('en-CA', { day: '2-digit', month: 'short' }),
-            searches: Math.round(searches),
-        });
-    }
-    return data;
-};
-
-// Reusable Components defined inside SellerDashboard
 const StatCard: React.FC<{ title: string; value: string; change: string; icon: React.ReactNode }> = ({ title, value, change, icon }) => (
     <div className="bg-white p-5 rounded-xl shadow-sm border flex items-start justify-between">
         <div>
@@ -51,9 +20,16 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
     </div>
 );
 
+interface SellerDashboardProps {
+    product: Product;
+}
 
-const SellerDashboard: React.FC = () => {
-    const [searchTrend] = useState<TrendData[]>(generateSearchTrend());
+const SellerDashboard: React.FC<SellerDashboardProps> = ({ product }) => {
+    const sellerPrice = useMemo(() => Math.round(product.basePrice * 0.98 / 10000) * 10000, [product]);
+    const competitorPricesData = useMemo(() => generateCompetitorPrices(product, sellerPrice), [product, sellerPrice]);
+    const funnelData = useMemo(() => generateFunnelData(product), [product]);
+    const searchTrend = useMemo(() => generateSearchTrend(product), [product]);
+    
     const [pricingSuggestion, setPricingSuggestion] = useState<string>('');
     const [insights, setInsights] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -62,16 +38,15 @@ const SellerDashboard: React.FC = () => {
         const fetchInsights = async () => {
             setIsLoading(true);
             const [suggestion, feed] = await Promise.all([
-                generateSellerPricingSuggestion(sellerPrice, competitorPricesData, searchTrend),
-                generateSellerInsightFeed()
+                generateSellerPricingSuggestion(sellerPrice, competitorPricesData, searchTrend, product.name),
+                generateSellerInsightFeed(product.name)
             ]);
             setPricingSuggestion(suggestion);
             setInsights(feed);
             setIsLoading(false);
         };
         fetchInsights();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [sellerPrice, competitorPricesData, searchTrend, product.name]);
     
     const getInsightIcon = (insight: string): React.ReactNode => {
         const lowercasedInsight = insight.toLowerCase();
@@ -101,13 +76,20 @@ const SellerDashboard: React.FC = () => {
         return null;
     };
     
+    const funnelMetrics = useMemo(() => ({
+        views: funnelData[0].value,
+        clicks: funnelData[1].value,
+        conversions: funnelData[3].value,
+        revenue: Math.round(funnelData[3].value * sellerPrice / 1000000)
+    }), [funnelData, sellerPrice]);
+
     return (
         <div className="space-y-8 animate-fade-in">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Total Views" value="15,670" change="+12.5% this week" icon={<ViewsIcon className="h-6 w-6"/>} />
-                <StatCard title="Total Clicks" value="1,250" change="+8.2% this week" icon={<ClicksIcon className="h-6 w-6"/>} />
-                <StatCard title="Conversions" value="180" change="+15.1% this week" icon={<ConversionIcon className="h-6 w-6"/>} />
-                <StatCard title="Revenue" value="3,663M T" change="+22.4% this week" icon={<RevenueIcon className="h-6 w-6"/>} />
+                <StatCard title="Total Views" value={funnelMetrics.views.toLocaleString()} change="+12.5% this week" icon={<ViewsIcon className="h-6 w-6"/>} />
+                <StatCard title="Total Clicks" value={funnelMetrics.clicks.toLocaleString()} change="+8.2% this week" icon={<ClicksIcon className="h-6 w-6"/>} />
+                <StatCard title="Conversions" value={funnelMetrics.conversions.toLocaleString()} change="+15.1% this week" icon={<ConversionIcon className="h-6 w-6"/>} />
+                <StatCard title="Revenue" value={`${funnelMetrics.revenue}M T`} change="+22.4% this week" icon={<RevenueIcon className="h-6 w-6"/>} />
             </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
@@ -116,10 +98,11 @@ const SellerDashboard: React.FC = () => {
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={competitorPricesData} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                            <XAxis type="number" domain={['dataMin - 500000', 'dataMax + 500000']} tickFormatter={(tick) => `${tick / 1000000}M`} />
-                            <YAxis type="category" dataKey="store" width={100} />
+                            <XAxis type="number" domain={['dataMin - 500000', 'dataMax + 500000']} tickFormatter={(tick) => `${tick / 1000000}M`} tick={{ fontSize: 12 }} />
+                            <YAxis type="category" dataKey="store" width={80} tick={{ fontSize: 12 }} />
                             <Tooltip formatter={(value: number) => new Intl.NumberFormat('fa-IR').format(value) + " T"}/>
-                            <Bar dataKey="price" name="Price" fill="#fb923c">
+                            <Legend />
+                            <Bar dataKey="price" name="Competitor Price" fill="#fb923c">
                                  <LabelList dataKey="price" position="right" formatter={(value: number) => new Intl.NumberFormat('fa-IR').format(value)} style={{ fill: '#374151', fontSize: '12px' }} />
                             </Bar>
                              <Bar dataKey="sellerPrice" name="Your Price" fill="#D32F2F" barSize={10}/>
@@ -132,7 +115,7 @@ const SellerDashboard: React.FC = () => {
                         <FunnelChart>
                             <Tooltip />
                             <Funnel dataKey="value" data={funnelData} isAnimationActive>
-                                <LabelList position="right" fill="#000" stroke="none" dataKey="name" />
+                                <LabelList position="center" fill="#000" stroke="none" dataKey="name" style={{ fontSize: '12px' }}/>
                             </Funnel>
                         </FunnelChart>
                     </ResponsiveContainer>
