@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { PriceData, CompetitorPrice, TrendData } from '../types';
 
 // API key is now expected to be in environment variables for security
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const ai = new GoogleGenAI({ "AIzaSyAWu9uOSYuvFeiLwLhePCz3ZXSCVC1W3jg" as string });
 
 export const generateBuyerInsight = async (priceHistory: PriceData[], productName: string): Promise<string> => {
   try {
